@@ -296,10 +296,6 @@ module Reline
       input.respond_to?(:tty?) && input.tty? && output.respond_to?(:tty?) && output.tty?
     end
 
-    private def terminal_rendering?
-      terminal? && !io_gate.dumb?
-    end
-
     private def inner_readline(prompt, add_history, multiline, rprompt: nil, &confirm_multiline_termination)
       if ENV['RELINE_STDERR_TTY']
         if io_gate.win?
@@ -343,7 +339,7 @@ module Reline
         end
       end
 
-      if terminal_rendering?
+      if terminal?
         line_editor.update_dialogs
         line_editor.rerender
       else
@@ -368,18 +364,18 @@ module Reline
             end
           }
           if line_editor.finished?
-            if terminal_rendering?
+            if terminal?
               line_editor.render_finished
-            elsif !terminal?
+            else
               line = line_editor.line
               output.write("#{line}\n") if line
             end
             break
-          elsif terminal_rendering?
+          elsif terminal?
             line_editor.rerender
           end
         end
-        io_gate.move_cursor_column(0) if terminal_rendering?
+        io_gate.move_cursor_column(0) if terminal?
       rescue Errno::EIO
         # Maybe the I/O has been closed.
       ensure
