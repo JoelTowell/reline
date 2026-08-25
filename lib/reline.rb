@@ -58,7 +58,7 @@ module Reline
     attr_accessor :key_stroke
     attr_accessor :line_editor
     attr_accessor :last_incremental_search
-    attr_reader :output
+    attr_reader :input, :output
 
     extend Forwardable
     def_delegators :config,
@@ -66,6 +66,7 @@ module Reline
       :autocompletion=
 
     def initialize
+      self.input = STDIN
       self.output = STDOUT
       @mutex = Mutex.new
       @dialog_proc_list = {}
@@ -175,6 +176,7 @@ module Reline
 
     def input=(val)
       raise TypeError unless val.respond_to?(:getc) or val.nil?
+      @input = val
       if val.respond_to?(:getc) && io_gate.respond_to?(:input=)
         io_gate.input = val
       end
@@ -290,6 +292,14 @@ module Reline
       end
     end
 
+    private def terminal?
+      input.respond_to?(:tty?) && input.tty? && output.respond_to?(:tty?) && output.tty?
+    end
+
+    private def terminal_rendering?
+      terminal? && !io_gate.dumb?
+    end
+
     private def inner_readline(prompt, add_history, multiline, rprompt: nil, &confirm_multiline_termination)
       if ENV['RELINE_STDERR_TTY']
         if io_gate.win?
@@ -333,8 +343,12 @@ module Reline
         end
       end
 
-      line_editor.update_dialogs
-      line_editor.rerender
+      if terminal_rendering?
+        line_editor.update_dialogs
+        line_editor.rerender
+      else
+        output.write(prompt)
+      end
 
       begin
         line_editor.set_signal_handlers
@@ -354,13 +368,18 @@ module Reline
             end
           }
           if line_editor.finished?
-            line_editor.render_finished
+            if terminal_rendering?
+              line_editor.render_finished
+            elsif !terminal?
+              line = line_editor.line
+              output.write("#{line}\n") if line
+            end
             break
-          else
+          elsif terminal_rendering?
             line_editor.rerender
           end
         end
-        io_gate.move_cursor_column(0)
+        io_gate.move_cursor_column(0) if terminal_rendering?
       rescue Errno::EIO
         # Maybe the I/O has been closed.
       ensure
