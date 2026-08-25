@@ -420,12 +420,22 @@ class Reline::Test < Reline::TestCase
 
   def test_readline_reads_piped_stdin
     out = readline_from_piped_stdin("input\n")
-    assert_include(out, { result: 'input' }.inspect)
+    assert_equal(">input\n#{ { result: 'input' }.inspect }\n", out)
+  end
+
+  def test_readline_with_dumb_terminal_outputs_plain_piped_stdin
+    out = readline_from_dumb_terminal_piped_stdin("input\n")
+    assert_equal("> input\n#{ { result: 'input' }.inspect }\n", out)
   end
 
   def test_readline_returns_nil_on_piped_stdin_eof
     out = readline_from_piped_stdin("")
-    assert_include(out, { result: nil }.inspect)
+    assert_equal(">#{ { result: nil }.inspect }\n", out)
+  end
+
+  def test_readline_with_dumb_terminal_outputs_plain_piped_stdin_eof
+    out = readline_from_dumb_terminal_piped_stdin("")
+    assert_equal("> #{ { result: nil }.inspect }\n", out)
   end
 
   def test_read_eof_returns_input
@@ -482,6 +492,17 @@ class Reline::Test < Reline::TestCase
     RUBY
 
     IO.popen([Reline.test_rubybin, "-I#{lib}", "-rreline", "-e", code], "r+") do |io|
+      io.write stdin
+      io.close_write
+      io.read
+    end
+  end
+
+  def readline_from_dumb_terminal_piped_stdin(stdin)
+    lib = File.expand_path("../../lib", __dir__)
+    code = "p result: Reline.readline('> ')"
+
+    IO.popen([{"TERM" => "dumb"}, Reline.test_rubybin, "-I#{lib}", "-rreline", "-e", code], "r+") do |io|
       io.write stdin
       io.close_write
       io.read
