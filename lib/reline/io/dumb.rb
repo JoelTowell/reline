@@ -53,16 +53,22 @@ class Reline::Dumb < Reline::IO
   end
 
   def buffered_output
-    return yield unless @input.respond_to?(:tty?) && @input.tty? && @output.respond_to?(:tty?) && @output.tty?
+    return yield unless tty?
 
     @output_buffer = +''
     yield
-    if @first_render
+    # render_finished writes complete transcript lines ending in CRLF. Keep those
+    # while dropping redraws that this IO gate cannot apply in place.
+    if @first_render || @output_buffer.end_with?("\n")
       @output.write(@output_buffer)
       @first_render = false
     end
   ensure
     @output_buffer = nil
+  end
+
+  private def tty?
+    @input.respond_to?(:tty?) && @input.tty? && @output.respond_to?(:tty?) && @output.tty?
   end
 
   def getc(_timeout_second)
