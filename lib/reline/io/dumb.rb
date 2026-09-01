@@ -57,8 +57,7 @@ class Reline::Dumb < Reline::IO
 
     @output_buffer = +''
     yield
-    # render_finished writes complete transcript lines ending in CRLF. Keep those
-    # while dropping redraws that this IO gate cannot apply in place.
+
     if @first_render || @output_buffer.end_with?("\n")
       @output.write(@output_buffer)
       @first_render = false
